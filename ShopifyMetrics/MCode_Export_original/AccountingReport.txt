@@ -1,6 +1,0 @@
-let
-    Source = DataByClass,
-    #"Reordered Columns" = Table.ReorderColumns(Source,{"period", "account_name", "costs_fixed", "costs_variable"}),
-    #"Sorted Rows" = Table.Sort(#"Reordered Columns",{{"period", Order.Ascending}, {"account_name", Order.Ascending}})
-in
-    #"Sorted Rows"

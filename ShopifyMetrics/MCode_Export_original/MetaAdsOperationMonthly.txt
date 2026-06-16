@@ -1,4 +1,0 @@
-let
-    Source = fnMetaAdsOperationByPeriod("month")
-in
-    Source

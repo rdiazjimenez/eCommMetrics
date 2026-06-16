@@ -1,2 +1,0 @@
-let Origen = Excel.CurrentWorkbook(){[Name="TablePUCClass"]}[Content],
-    #"Filtered Rows" = Table.SelectRows(Origen, each [Clasificación] <> null and [Clasificación] <> "") in #"Filtered Rows"

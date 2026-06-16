@@ -1,1 +1,0 @@
-Excel.CurrentWorkbook(){[Name="ParamGoogleReportSource"]}[Content]{0}[Column1] meta [IsParameterQuery=true, Type="text", IsParameterQueryRequired=true]

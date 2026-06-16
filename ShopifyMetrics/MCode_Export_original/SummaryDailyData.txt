@@ -1,8 +1,0 @@
-let
-    Source = Excel.CurrentWorkbook(){[Name="SummaryDailyData"]}[Content],
-    ChangeTypeDate = Table.TransformColumnTypes(Source,{{"day", type date}}),
-    FilterRowsRefresh = Table.SelectRows(ChangeTypeDate, each [day] <= Date.From(ParamFechaRefrescarHistorico)),
-    AppendedQuery = Table.Combine({FilterRowsRefresh, SummaryDaily}),
-    ChangedType = Table.TransformColumnTypes(AppendedQuery,{{"day", type date}, {"orders", Int64.Type}, {"quantity_ordered_per_order", type number}, {"average_order_value", type number}, {"quantity_returned", Int64.Type}, {"gross_sales", type number}, {"discounts", type number}, {"sales_reversals", type number}, {"net_sales", type number}, {"shipping_charges", Int64.Type}, {"return_fees", Int64.Type}, {"taxes", type number}, {"total_sales", type number}, {"net_sales_without_cost_recorded", type number}, {"net_sales_with_cost_recorded", type number}, {"cost_of_goods_sold", Int64.Type}, {"gross_profit", type number}, {"gift_card_gross_sales", Int64.Type}, {"net_items_sold", Int64.Type}, {"gift_card_discounts", Int64.Type}, {"gift_card_net_sales", Int64.Type}, {"refresh_date", type datetime}})
-in
-    ChangedType

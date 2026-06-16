@@ -1,2 +1,0 @@
-let Origen = Excel.CurrentWorkbook(){[Name="TablaSIIGOParam"]}[Content],
-    #"Changed Type" = Table.TransformColumnTypes(Origen,{{"Name", type text}, {"Value", type text}}) in #"Changed Type"

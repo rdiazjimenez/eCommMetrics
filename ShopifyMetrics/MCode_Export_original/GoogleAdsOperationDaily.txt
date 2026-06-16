@@ -1,4 +1,0 @@
-let
-    Source = fnGoogleAdsOperationByPeriod("day")
-in
-    Source

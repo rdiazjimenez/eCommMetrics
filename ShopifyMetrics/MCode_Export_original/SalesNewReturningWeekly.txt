@@ -1,4 +1,0 @@
-let
-    Source = fnSalesNewReturningByPeriod("week", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistSemanal)
-in
-    Source

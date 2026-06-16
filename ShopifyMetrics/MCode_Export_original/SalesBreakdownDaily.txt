@@ -1,4 +1,0 @@
-let
-    Source = fnGetSalesBreakdownByPeriod("day", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistDiario)
-in
-    Source

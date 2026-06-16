@@ -1,4 +1,0 @@
-let
-    Source = fnGoogleAdsOperationByPeriod("month")
-in
-    Source

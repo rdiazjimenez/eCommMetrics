@@ -1,1 +1,0 @@
-Date.From(Excel.CurrentWorkbook(){[Name="ParamFechaFinReporte"]}[Content]{0}[Column1]) meta [IsParameterQuery=true, Type="date", IsParameterQueryRequired=true]

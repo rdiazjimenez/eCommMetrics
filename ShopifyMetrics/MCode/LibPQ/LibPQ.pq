@@ -148,16 +148,15 @@ let
                 each [
                     i = [i]+1,
                     folder = directories{i},
-                    iserror = (try Table.RowCount(
-                                    Folder.Contents(folder)
-                               ))[HasError],  // For some weird reason try does
-                                              // not catch DataSource error.
-                                              // Check "try Folder.Contents("C:\none")"
-                                              // it will return [HasError]=false
+                    // try does not catch DataSource error for Folder.Contents;
+                    // use Table.RowCount probe to detect unreadable paths.
+                    folder_try = try Folder.Contents(folder),
+                    iserror = folder_try[HasError] or
+                              (try Table.RowCount(folder_try[Value]))[HasError],
                     files = if iserror then
                                 #table({"Name","Extension"},{})
                             else
-                                Folder.Contents(folder),
+                                folder_try[Value],
                     filter = Table.SelectRows(
                                 files,
                                 each [Extension] = EXTENSION
@@ -271,7 +270,7 @@ let
             )),
             Module = if Results[module] <> null
                      then Results[module]
-                     else if Results[module] is null and Results[error] <> null
+                     else if Results[error] <> null
                      then error Results[error]
                      else error Error.Record(
                         ERR_SOURCE_UNREADABLE,
@@ -292,24 +291,13 @@ let
         Module.ImportAny = Module.ImportAny
     ],
     Library.Names = List.Distinct(Module.Explore(Sources.Local)[module]),
-    Library = List.Last(
-        List.Generate(
-            () => [i=-1,record=[]],
-            each [i] < List.Count(Library.Names),
-            each [
-                i = [i] + 1,
-                record = Record.AddField(
-                    [record],
-                    Library.Names{i},
-                    let
-                        Try = try Module.Import(Library.Names{i}),
-                        Return = if Try[HasError] then Try[Error] else Try[Value]
-                    in
-                        Return
-                )
-            ],
-            each [record]
-        )
+    Library = Record.FromList(
+        List.Transform(
+            Library.Names,
+            (n) => let Try = try Module.Import(n)
+                   in if Try[HasError] then Try[Error] else Try[Value]
+        ),
+        Library.Names
     ),
     Module.Library = Record.Combine({Helpers, Library}),
 

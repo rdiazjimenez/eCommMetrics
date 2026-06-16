@@ -1,1 +1,0 @@
-Excel.CurrentWorkbook(){[Name="ParamNombreTablaHistMensual"]}[Content]{0}[Column1] meta [IsParameterQuery=true, Type="Any", IsParameterQueryRequired=true]

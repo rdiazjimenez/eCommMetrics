@@ -1,4 +1,0 @@
-let
-    Source = fnSalesQSortBySourceProduct("day", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistDiario)
-in
-    Source
