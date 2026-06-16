@@ -1,0 +1,8 @@
+let
+    fechaInic = ParamFechaInicioReporte,
+    fechaFin = ParamFechaFinReporte,
+    fechaRef = ParamFechaRefrescarHistorico,
+    nomTabl = ParamNombreTablaHistDiario,
+    Source = fnSalesBySourceByPeriod("day", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistDiario)
+in
+    Source

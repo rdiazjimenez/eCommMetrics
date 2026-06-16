@@ -1,0 +1,116 @@
+let
+    // 1. DEFINICIÓN DE METADATOS PARA EL PANEL
+    fnType = type function (
+        GroupByField as (type text meta [
+            Documentation.FieldCaption = "Nivel de Agrupación",
+            Documentation.AllowedValues = {"day", "week", "month"},
+            Documentation.LongDescription = "Selecciona la granularidad. 'week' activa la consolidación local para respetar el día ancla (ej. Viernes)."
+        ]),
+        FechaInicio as (type date meta [Documentation.FieldCaption = "Fecha Inicial"]),
+        FechaFin as (type date meta [Documentation.FieldCaption = "Fecha Final"]),
+        FechaRefresco as (type date meta [Documentation.FieldCaption = "Fecha Refrescar Histórico"]),
+        optional NombreTablaHistorica as (type text meta [Documentation.FieldCaption = "Nombre Tabla Excel (Opcional)"])
+    ) as table meta [
+        Documentation.Name = "fnGetSessionsByReferrer",
+        Documentation.LongDescription = "Obtiene sesiones, checkouts y tasa de conversión por fuente de referencia. Compatible con periods (date).",
+        Documentation.Examples = {[
+            Description = "Obtener sesiones semanales",
+            Code = "fnGetSessionsByReferrer(""week"", #date(2026,1,1), #date(2026,3,1), #date(2026,2,25))",
+            Result = "Tabla combinada con detalle por fuente y totales del sitio por semana."
+        ]}
+    ],
+
+    // 2. LÓGICA INTERNA
+    FuncLogic = (
+        GroupByField as text, 
+        FechaInicio as date, 
+        FechaFin as date, 
+        FechaRefresco as date, 
+        optional NombreTablaHistorica as text
+    ) as table =>
+    let
+        SourceTable = "sessions",
+        ColumnsToShow = "sessions, sessions_that_completed_checkout, conversion_rate",
+        
+        ApiGroup = if GroupByField = "week" then "day" else GroupByField,
+
+        RawPeriods = fnGetDatesInPeriod(FechaInicio, FechaFin, FechaRefresco, GroupByField, ParamDiaSemanaReporte, NombreTablaHistorica),
+        Periods = if RawPeriods is null or Table.IsEmpty(RawPeriods) then #table({"startDate", "endDate"}, {}) else RawPeriods,
+
+        // --- FUNCIÓN INTERNA PARA PROCESAR LLAMADAS ---
+        GetShopifyData = (IsTotal as logical) => 
+            let
+                CurrentGroupBy = if IsTotal then ApiGroup else ApiGroup & ", referrer_source",
+                Prep = Table.AddColumn(Periods, "Query", each 
+                    "FROM " & SourceTable & " SHOW " & ColumnsToShow & 
+                    " GROUP BY " & CurrentGroupBy & 
+                    " SINCE " & Date.ToText([startDate], "yyyy-MM-dd") & 
+                    " UNTIL " & Date.ToText([endDate], "yyyy-MM-dd")
+                ),
+                Invoke = Table.AddColumn(Prep, "Data", each try fnGetShopifyQLData([Query]) otherwise null),
+                Valid = Table.SelectRows(Invoke, each [Data] <> null and not ([Data] is text and [Data] = "")),
+                
+                Expand = if Table.IsEmpty(Valid) then #table({},{}) else
+                    let
+                        ExpList = Table.ExpandListColumn(Valid, "Data"),
+                        TargetCol = "api_" & ApiGroup,
+                        
+                        SampleRecord = List.First(ExpList[Data]),
+                        FieldsInRecord = Record.FieldNames(SampleRecord),
+                        ExpRec = Table.ExpandRecordColumn(ExpList, "Data", FieldsInRecord, List.Transform(FieldsInRecord, each "api_" & _)),
+                        
+                        RenamedCols = Table.RenameColumns(ExpRec, {
+                            {"api_sessions", "sessions"}, 
+                            {"api_sessions_that_completed_checkout", "sessions_that_completed_checkout"}
+                        } & (if IsTotal then {} else {{"api_referrer_source", "referrer_source"}})),
+
+                        ToNum = Table.TransformColumnTypes(RenamedCols, {{"sessions", Int64.Type}, {"sessions_that_completed_checkout", Int64.Type}}),
+                        
+                        Consolidate = if GroupByField = "week" then
+                            Table.Group(ToNum, if IsTotal then {"startDate"} else {"startDate", "referrer_source"}, {
+                                {"sessions", each List.Sum([sessions]), Int64.Type},
+                                {"sessions_that_completed_checkout", each List.Sum([sessions_that_completed_checkout]), Int64.Type}
+                            })
+                            else 
+                                Table.RenameColumns(ToNum, {{TargetCol, GroupByField}})
+                    in
+                        Consolidate
+            in
+                Expand,
+
+        TableDetail = GetShopifyData(false),
+        TableTotal = GetShopifyData(true),
+        
+        FormatTotal = if Table.IsEmpty(TableTotal) then TableTotal else Table.AddColumn(TableTotal, "referrer_source", each "Total site"),
+
+        CombinedTable = Table.Combine({TableDetail, FormatTotal}),
+        
+        // 4. NORMALIZACIÓN FINAL
+        FinalOutput = if Table.IsEmpty(CombinedTable) then 
+            #table({GroupByField, "referrer_source", "sessions", "sessions_that_completed_checkout", "conversion_rate", "refresh_date"}, {})
+        else
+            let
+                RenameAxis = if GroupByField = "week" then Table.RenameColumns(CombinedTable, {{"startDate", "week"}}) else CombinedTable,
+                
+                TransformDate = if GroupByField = "month" then 
+                                    Table.TransformColumns(RenameAxis, {{GroupByField, each if Text.Length(Text.From(_)) = 7 then Date.FromText(Text.From(_) & "-01") else Date.From(_), type date}})
+                                 else RenameAxis,
+                
+                Typed = Table.TransformColumnTypes(TransformDate, {
+                    {GroupByField, type date},
+                    {"referrer_source", type text},
+                    {"sessions", Int64.Type},
+                    {"sessions_that_completed_checkout", Int64.Type}
+                }),
+                
+                AddCR = Table.AddColumn(Typed, "conversion_rate", each if [sessions] > 0 then [sessions_that_completed_checkout] / [sessions] else 0, type number),
+                
+                AddedRefresh = Table.AddColumn(AddCR, "refresh_date_ConversionRate", each DateTime.LocalNow(), type datetime),
+                
+                FinalColumns = Table.SelectColumns(AddedRefresh, {GroupByField, "referrer_source", "sessions", "sessions_that_completed_checkout", "conversion_rate", "refresh_date_ConversionRate"})
+            in
+                FinalColumns
+    in
+        FinalOutput
+in
+    Value.ReplaceType(FuncLogic, fnType)

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(az account *)",
+      "PowerShell(az account show --query \"{subscriptionId:id, name:name, tenantId:tenantId}\" -o json)",
+      "PowerShell(az group list --query \"[].{name:name, location:location}\" -o table)"
+    ]
+  }
+}

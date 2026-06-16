@@ -1,0 +1,36 @@
+(GraphQL_Query_String as text) =>
+let
+    ApiUrl = "https://" & ParamShopName & ".myshopify.com/admin/api/" & ParamApiVersion & "/graphql.json",
+    Payload = Json.FromValue([query = GraphQL_Query_String]),
+
+    // Función de ejecución con reintento ante 429
+    GetRawResponse = (p) =>
+        let
+            Response = Web.Contents(ApiUrl, [
+                Headers = [#"X-Shopify-Access-Token" = ParamAccessToken, #"Content-Type" = "application/json"],
+                Content = p,
+                ManualStatusHandling = {429}
+            ]),
+            ResponseMeta = Value.Metadata(Response),
+            Status = ResponseMeta[Response.Status],
+            
+            WaitTime = if Status = 429 then 
+                         Number.From(Record.FieldOrDefault(ResponseMeta[Headers], "Retry-After", 2)) 
+                       else 0,
+            
+            Result = if Status = 429 then 
+                         @Function.InvokeAfter(() => @GetRawResponse(p), #duration(0, 0, 0, WaitTime))
+                     else 
+                         Json.Document(Response)
+        in
+            Result,
+
+    RawResponse = GetRawResponse(Payload),
+
+    // Manejo de errores/nulos adaptado a la respuesta de GraphQL:
+    // En lugar de buscar 'shopifyqlQuery', validamos que 'data' exista y tenga contenido
+    Rows = if Record.HasFields(RawResponse, "data") and RawResponse[data] <> null 
+           then RawResponse[data] 
+           else {}
+in
+    Rows

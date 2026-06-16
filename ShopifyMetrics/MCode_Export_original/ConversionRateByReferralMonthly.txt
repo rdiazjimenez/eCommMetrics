@@ -1,0 +1,4 @@
+let
+    Source = fnConversionRateByReferral("month", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistMensual)
+in
+    Source

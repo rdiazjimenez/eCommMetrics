@@ -1,0 +1,1 @@
+Excel.CurrentWorkbook(){[Name="ParamAccessToken"]}[Content]{0}[Column1] meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]

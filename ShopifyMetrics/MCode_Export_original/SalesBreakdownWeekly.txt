@@ -1,0 +1,4 @@
+let
+    Source = fnGetSalesBreakdownByPeriod("week", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistSemanal)
+in
+    Source

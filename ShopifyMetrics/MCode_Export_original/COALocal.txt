@@ -1,0 +1,12 @@
+let
+    Source = Excel.CurrentWorkbook(){[Name="COAApi"]}[Content],
+    Buffer = Table.Buffer(Source),
+    Fuente = Table.SelectColumns(Buffer,{"Código", "Nombre", "Activo", "Tipo"}),
+    Manual = Excel.CurrentWorkbook(){[Name="COALocal"]}[Content],
+    ManualTipos = Table.TransformColumnTypes(Manual,{{"Código", type text}, {"Nombre", type text}}),
+    UnirConsultas = Table.NestedJoin(Fuente, {"Código"}, ManualTipos, {"Código"}, "ManualTipos", JoinKind.LeftOuter),
+    Expandir = Table.ExpandTableColumn(UnirConsultas, "ManualTipos", {"Categoria", "Clasificación"}, {"Categoria", "Clasificación"}),
+    CambiarTipos = Table.TransformColumnTypes(Expandir,{{"Categoria", type text},{"Clasificación", type text}}),
+    #"Sorted Rows" = Table.Sort(CambiarTipos,{{"Código", Order.Ascending}})
+in
+    #"Sorted Rows"

@@ -1,0 +1,4 @@
+let
+    Source = fnSalesQSortBySourceProduct("month", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico, ParamNombreTablaHistMensual)
+in
+    Source

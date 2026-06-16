@@ -1,0 +1,55 @@
+let
+    // 1. CONFIGURACIÓN DE PARÁMETROS
+    YearTarget = 2026, // Puedes cambiarlo por un parámetro ParamAño
+    ApiUrl = "https://" & ParamShopName & ".myshopify.com/admin/api/" & ParamApiVersion & "/graphql.json",
+    
+    // 2. GENERAR LISTA DE MESES DEL AÑO
+    ListaMeses = {1..12},
+    
+    // 3. FUNCIÓN PARA TRAER DATOS DE UN MES ESPECÍFICO
+    GetSalesByMonth = (Mes as number) =>
+        let
+            FechaInic = Date.ToText(#date(YearTarget, Mes, 1), "yyyy-MM-dd"),
+            FechaFin  = Date.ToText(Date.EndOfMonth(#date(YearTarget, Mes, 1)), "yyyy-MM-dd"),
+            
+            ShopifyQL_String = "
+                FROM sales 
+                SHOW gross_sales, discounts, net_sales, taxes 
+                GROUP BY day 
+                SINCE " & FechaInic & " 
+                UNTIL " & FechaFin,
+
+            Payload = Json.FromValue([query = "{ shopifyqlQuery(query: """ & ShopifyQL_String & """) { tableData { rows } } }"]),
+            
+            // Petición con espera de 2 segundos entre meses para evitar Rate Limit
+            Source = Function.InvokeAfter(
+                () => Json.Document(Web.Contents(ApiUrl, [
+                    Headers = [#"X-Shopify-Access-Token" = ParamAccessToken, #"Content-Type" = "application/json"],
+                    Content = Payload,
+                    ManualStatusHandling = {429}
+                ])), 
+                #duration(0,0,0,2)
+            ),
+            
+            Data = if Record.HasFields(Source, "data") then Source[data][shopifyqlQuery][tableData][rows] else {}
+        in
+            Data,
+
+    // 4. EJECUCIÓN ITERATIVA
+    Ejecucion = List.Transform(ListaMeses, each GetSalesByMonth(_)),
+    Consolidado = List.Combine(Ejecucion),
+    
+    // 5. CONVERSIÓN A TABLA
+    TablaFinal = if List.IsEmpty(Consolidado) then 
+                    #table({"day", "order_name", "gross_sales", "discounts", "net_sales", "taxes"}, {}) 
+                 else 
+                    Table.FromRecords(Consolidado),
+
+    #"Tipos Cambiados" = Table.TransformColumnTypes(TablaFinal, {
+        {"gross_sales", type number}, {"discounts", type number}, 
+        {"net_sales", type number}, {"taxes", type number}, 
+        {"day", type date}
+    }),
+    #"Sorted Rows" = Table.Sort(#"Tipos Cambiados",{{"day", Order.Ascending}})
+in
+    #"Sorted Rows"

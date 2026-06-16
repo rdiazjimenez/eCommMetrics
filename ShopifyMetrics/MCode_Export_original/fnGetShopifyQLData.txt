@@ -1,0 +1,23 @@
+(ShopifyQL_Query as text) =>
+let
+    ApiUrl = "https://" & ParamShopName & ".myshopify.com/admin/api/" & ParamApiVersion & "/graphql.json",
+    
+    // Empaquetamos el query recibido en la estructura GraphQL
+    Payload = Json.FromValue([query = "{ shopifyqlQuery(query: """ & ShopifyQL_Query & """) { tableData { rows } } }"]),
+    
+    // Ejecución con manejo de Rate Limit y espera de 1 segundo
+    Source = Function.InvokeAfter(
+        () => Json.Document(Web.Contents(ApiUrl, [
+            Headers = [#"X-Shopify-Access-Token" = ParamAccessToken, #"Content-Type" = "application/json"],
+            Content = Payload,
+            ManualStatusHandling = {429}
+        ])), 
+        #duration(0,0,0,1)
+    ),
+    
+    // Extraer filas o devolver lista vacía si hay error/nulo
+    Rows = if Record.HasFields(Source, "data") and Source[data][shopifyqlQuery] <> null 
+           then Source[data][shopifyqlQuery][tableData][rows] 
+           else {}
+in
+    Rows

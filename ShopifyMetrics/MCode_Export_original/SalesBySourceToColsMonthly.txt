@@ -1,0 +1,17 @@
+let
+    // 1. CARGA DE ORIGEN
+    RawData = SalesBySourceMonthly,
+
+    // 2. DESPIVOTAR MÉTRICAS
+    // Normalizamos las columnas de métricas para prepararlas para la combinación
+    UnpivotedMetrics = Table.UnpivotOtherColumns(RawData, {"month", "channel", "refresh_date_SalesBySource"}, "MetricName", "MetricValue"),
+
+    // 3. CREAR LLAVE DE ATRIBUTO
+    // Combinamos el canal con la métrica (ej. Retail_gross_profit)
+    MergedChannelMetric = Table.CombineColumns(UnpivotedMetrics, {"channel", "MetricName"}, Combiner.CombineTextByDelimiter("_", QuoteStyle.None), "ChannelMetricKey"),
+
+    // 4. REPIVOTAR A COLUMNAS FINALES
+    // Transponemos las llaves combinadas a columnas individuales
+    PivotedResults = Table.Pivot(MergedChannelMetric, List.Distinct(MergedChannelMetric[ChannelMetricKey]), "ChannelMetricKey", "MetricValue", List.Sum)
+in
+    PivotedResults

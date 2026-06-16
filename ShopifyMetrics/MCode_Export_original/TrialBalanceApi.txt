@@ -1,0 +1,38 @@
+let
+    // 1. Definición de límites basada en parámetros
+    FechaInic = Date.From(ParamFechaInicioReporte),
+    FechaFin = Date.From(ParamFechaFinReporte),
+    
+    Endpoint = SiigoEndpoint,
+    ParamTable = TablaSIIGOParam,
+
+    // 2. Generación dinámica de la lista de meses entre ambas fechas
+    // Calculamos la diferencia en meses para crear una lista secuencial
+    ConteoMeses = ((Date.Year(FechaFin) - Date.Year(FechaInic)) * 12) + (Date.Month(FechaFin) - Date.Month(FechaInic)) + 1,
+    
+    ListaDeFechas = List.Transform({0..ConteoMeses - 1}, each Date.AddMonths(Date.StartOfMonth(FechaInic), _)),
+    
+    // 3. Conversión de la lista en Tabla con columnas Año y Mes
+    TablaPeriodos = Table.FromList(ListaDeFechas, Splitter.SplitByNothing(), {"Fecha"}),
+    PeriodosLogicos = Table.AddColumn(TablaPeriodos, "Año", each Date.Year([Fecha]), Int64.Type),
+    PeriodosFinales = Table.AddColumn(PeriodosLogicos, "Mes", each Date.Month([Fecha]), Int64.Type),
+
+    // 4. Llamada a la API con el JSON dinámico
+    LlamadaAPI = Table.AddColumn(PeriodosFinales, "BalanceData", each 
+        let
+            FiltroJSON = "{
+                ""year"": " & Text.From([Año]) & ",
+                ""month_start"": " & Text.From([Mes]) & ",
+                ""month_end"": " & Text.From([Mes]) & ", 
+                ""includes_tax_difference"": false
+            }"
+        in
+            LibPQ("Siigo.getBalancePruebaTercero")(FiltroJSON, Endpoint, ParamTable)
+    ),
+    
+    // Limpieza de columna técnica de fecha si no es necesaria
+    Resultado = Table.RemoveColumns(LlamadaAPI, {"Fecha"}),
+    #"Expanded BalanceData" = Table.ExpandTableColumn(Resultado, "BalanceData", {"Nivel", "Transaccional", "Código cuenta contable", "Nombre Cuenta contable", "Identificación", "Sucursal", "Nombre tercero", "Saldo Inicial", "Movimiento Débito", "Movimiento Crédito", "Saldo final", "MovimientoDebitoCredito", "Fecha inicio", "Fecha fin"}, {"Nivel", "Transaccional", "Código cuenta contable", "Nombre Cuenta contable", "Identificación", "Sucursal", "Nombre tercero", "Saldo Inicial", "Movimiento Débito", "Movimiento Crédito", "Saldo final", "MovimientoDebitoCredito", "Fecha inicio", "Fecha fin"}),
+    #"Changed Type" = Table.TransformColumnTypes(#"Expanded BalanceData",{{"Nivel", type text}, {"Transaccional", type text}, {"Código cuenta contable", type text}, {"Nombre Cuenta contable", type text}, {"Identificación", type text}, {"Sucursal", type any}, {"Nombre tercero", type text}, {"Saldo Inicial", type number}, {"Movimiento Débito", type number}, {"Movimiento Crédito", type number}, {"Saldo final", type number}, {"MovimientoDebitoCredito", type number}, {"Fecha inicio", type date}, {"Fecha fin", type date}})
+in
+    #"Changed Type"

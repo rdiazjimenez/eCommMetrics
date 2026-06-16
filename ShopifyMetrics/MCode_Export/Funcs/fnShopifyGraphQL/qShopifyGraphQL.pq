@@ -1,0 +1,69 @@
+let
+    GraphQLQueryString = Text.From(ParamShopifyQLQuery),
+    ShopName = Text.From(ParamShopName),
+    ApiVersion = Text.From(ParamApiVersion),
+    AccessToken = Text.From(ParamAccessToken),
+
+    ValidatedInputs = if Text.Trim(GraphQLQueryString) = ""
+        then error "GraphQL query cannot be empty."
+        else if Text.Contains(ShopName, "{") or Text.Contains(ShopName, "}") or Text.Contains(ShopName, " ")
+        then error "ShopName must be a Shopify subdomain, not a GraphQL query. Check fnShopifyGraphQL argument order."
+        else if Text.Contains(ApiVersion, ".myshopify.com") or not Text.Contains(ApiVersion, "-")
+        then error "ApiVersion must look like yyyy-mm, for example 2026-04. Check fnShopifyGraphQL argument order."
+        else null,
+
+    ApiUrl = "https://" & ShopName & ".myshopify.com/admin/api/" & ApiVersion & "/graphql.json",
+    Payload = Json.FromValue([query = GraphQLQueryString]),
+    MaxRetries = 5,
+
+    FormatError = (value as any) as text =>
+        if Value.Is(value, type record) and Record.HasFields(value, "message") then
+            Text.From(value[message])
+        else if Value.Is(value, type record) then
+            Text.Combine(List.Transform(Record.FieldNames(value), each _ & "=" & Text.From(Record.Field(value, _))), "; ")
+        else
+            Text.From(value),
+
+    FormatErrors = (errors as any) as text =>
+        if Value.Is(errors, type list) then
+            Text.Combine(List.Transform(errors, each FormatError(_)), "; ")
+        else
+            FormatError(errors),
+
+    GetResponse = (p as binary, attempt as number) as record =>
+        let
+            RawBytes = Web.Contents(ApiUrl, [
+                Headers = [
+                    #"X-Shopify-Access-Token" = AccessToken,
+                    #"Content-Type" = "application/json",
+                    Accept = "application/json"
+                ],
+                Content = p,
+                ManualStatusHandling = {400, 401, 403, 404, 429, 500, 502, 503, 504}
+            ]),
+            Meta = Value.Metadata(RawBytes),
+            Headers = Record.FieldOrDefault(Meta, "Headers", []),
+            StatusCode = Record.FieldOrDefault(Meta, "Response.Status", 200),
+            Parsed = try Json.Document(RawBytes) otherwise null,
+            ErrorText = if Value.Is(Parsed, type record) and Record.HasFields(Parsed, "errors")
+                        then FormatErrors(Parsed[errors])
+                        else Text.FromBinary(RawBytes),
+            WaitSecs = if StatusCode = 429
+                       then (try Number.From(Record.FieldOrDefault(Headers, "Retry-After", "2")) otherwise 2)
+                       else 0,
+            Result = if StatusCode = 429 then
+                         if attempt < MaxRetries
+                         then @Function.InvokeAfter(() => @GetResponse(p, attempt + 1), #duration(0, 0, 0, WaitSecs))
+                         else error "Shopify GraphQL HTTP 429 after " & Number.ToText(MaxRetries) & " retries."
+                     else if StatusCode >= 400 then
+                         error "Shopify GraphQL HTTP " & Number.ToText(StatusCode) & ": " & ErrorText
+                     else if Parsed = null then
+                         error "Shopify GraphQL returned a non-JSON response."
+                     else
+                         Parsed
+        in
+            Result,
+
+    Response = if ValidatedInputs = null then GetResponse(Payload, 0) else error "Invalid GraphQL inputs."
+in
+    Response

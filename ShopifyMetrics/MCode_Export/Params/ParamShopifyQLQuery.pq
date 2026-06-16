@@ -1,0 +1,1 @@
+"FROM sales SHOW orders, gross_sales, discounts, net_sales, total_sales GROUP BY day SINCE 2026-01-01 UNTIL 2026-01-31" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]

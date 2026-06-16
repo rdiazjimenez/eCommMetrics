@@ -1,0 +1,74 @@
+let
+    Source = TrialBalanceApi,
+
+    // Configuración de Idioma para las nuevas columnas (puedes cambiar "ES" por "EN")
+    Idioma = "ES",
+    lang = if Idioma <> null and Text.Upper(Idioma) = "ES" then "ES" else "EN",
+    labels = [
+        ParentChild = if lang = "ES" then "Padre e Hijo" else "Parent & Child",
+        Parent      = if lang = "ES" then "Padre" else "Parent",
+        Child       = if lang = "ES" then "Hijo" else "Child",
+        Root        = if lang = "ES" then "Raíz" else "Root",
+        ColName     = if lang = "ES" then "Tipo" else "Type"
+    ],
+    
+// 5. Preparación de Base para Jerarquía
+    // Seleccionamos las columnas necesarias y eliminamos duplicados de terceros
+    SeleccionInicial = Table.SelectColumns(Source, {"Código cuenta contable", "Nombre Cuenta contable", "Nivel", "Transaccional"}),
+    BaseUnica = Table.Distinct(SeleccionInicial, {"Código cuenta contable"}),
+    FiltrarVacios = Table.SelectRows(BaseUnica, each ([Código cuenta contable] <> null and [Código cuenta contable] <> "")),
+    
+    // Estandarizamos nombres para la lógica siguiente
+    RenombrarBase = Table.RenameColumns(FiltrarVacios, {{"Código cuenta contable", "Código"}, {"Nombre Cuenta contable", "Nombre"}}),
+    
+    // Creamos una columna "Activo" virtual (Si está en el balance histórico, se asume "Sí")
+    AddActivoVirtual = Table.AddColumn(RenombrarBase, "Activo", each "Sí", type text),
+    BufferedBase = Table.Buffer(AddActivoVirtual),
+
+    /*--------------------------------------------------
+     * 6. Construir la jerarquía (Lógica de tu función)
+     *-------------------------------------------------*/
+    
+    /* 6.1 Encontrar padre directo de cada código */
+    AddParent = Table.AddColumn(
+        BufferedBase, "Parent", 
+        each List.Last(
+                List.Select(
+                    BufferedBase[Código], 
+                    (prefix) => Text.StartsWith([Código], prefix) and [Código] <> prefix
+                )
+             ), 
+        type text
+    ),
+
+    /* 6.2 Detectar si tiene hijos */
+    AddChildren = Table.AddColumn(
+        AddParent, "HasChildren", 
+        each List.AnyTrue(
+                List.Transform(
+                    BufferedBase[Código], 
+                    (code) => Text.StartsWith(code, [Código]) and code <> [Código]
+                )
+             ), 
+        type logical
+    ),
+
+    /* 6.3 Clasificar el nodo (Tipo) */
+    AddType = Table.AddColumn(
+        AddChildren, labels[ColName], 
+        each  if [HasChildren] and [Parent] <> null then labels[ParentChild]
+              else if [HasChildren]                 then labels[Parent]
+              else if [Parent]     <> null          then labels[Child]
+              else                                       labels[Root],
+        type text
+    ),
+
+    /* 6.4 Ordenamiento Jerárquico Final */
+    Ordenar = Table.Sort(AddType, {{"Código", Order.Ascending}}),
+    
+    // 7. Estampa de tiempo y limpieza final
+    DefinirTipos = Table.TransformColumnTypes(Ordenar,{{"Nivel", type text}, {"Transaccional", type text}}),
+    AgregarFecha = Table.AddColumn(DefinirTipos, "Fecha Actualización", each DateTime.LocalNow(), type datetime),
+    #"Sorted Rows" = Table.Sort(AgregarFecha,{{"Código", Order.Ascending}})
+in
+    #"Sorted Rows"

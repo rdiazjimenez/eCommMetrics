@@ -1,0 +1,4 @@
+let
+    Source = fnSalesByUTMByPeriod("day", ParamFechaInicioReporte, ParamFechaFinReporte, ParamFechaRefrescarHistorico)
+in
+    Source

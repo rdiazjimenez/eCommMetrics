@@ -1,0 +1,4 @@
+let
+    Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("BcHBDYAgDADAXfo29u8MOgHhUbCRmlBMKTEyvXchACxQ3J++IRq96yVeRhqdLTd1Vl9zq2in0LylsvLEAyuJ4i7JyD6EGH8=", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [Local = _t, Web = _t])
+in
+    Source

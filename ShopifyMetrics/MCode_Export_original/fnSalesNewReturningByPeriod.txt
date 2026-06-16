@@ -1,0 +1,125 @@
+let
+    // 1. DEFINICIÓN DE METADATOS (Actualizado a date)
+    fnType = type function (
+        GroupByField as (type text meta [
+            Documentation.FieldCaption = "Nivel de Agrupación",
+            Documentation.AllowedValues = {"day", "week", "month"}
+        ]),
+        FechaInicio as (type date),
+        FechaFin as (type date),
+        FechaRefresco as (type date),
+        optional NombreTablaHistorica as (type text)
+    ) as table meta [
+        Documentation.Name = "fnSalesNewReturning",
+        Documentation.LongDescription = "Versión ajustada para tipos date en Periods y tipado dinámico."
+    ],
+
+    FuncLogic = (
+        GroupByField as text, 
+        FechaInicio as date, 
+        FechaFin as date, 
+        FechaRefresco as date, 
+        optional NombreTablaHistorica as text
+    ) as table =>
+    let
+        SourceTable = "sales",
+        ColumnsToShow = "customers, orders, net_sales, average_order_value, cost_of_goods_sold, gross_profit",
+        
+        ApiTimeGroup = if GroupByField = "week" then "day" else GroupByField,
+        ShopifyGroup = "new_or_returning_customer, " & ApiTimeGroup,
+
+        // Invocación a Periods (ya devuelve date)
+        Periods = fnGetDatesInPeriod(FechaInicio, FechaFin, FechaRefresco, GroupByField, ParamDiaSemanaReporte, NombreTablaHistorica),
+
+        RenamedPeriods = Table.RenameColumns(Periods, {{"startDate", "base_startDate"}, {"endDate", "base_endDate"}}),
+
+        PreparedQueries = Table.AddColumn(RenamedPeriods, "CustomQuery", each 
+            "FROM " & SourceTable & " " & 
+            "SHOW " & ColumnsToShow & " " & 
+            "GROUP BY " & ShopifyGroup & " " & 
+            "SINCE " & Date.ToText([base_startDate], "yyyy-MM-dd") & " " & 
+            "UNTIL " & Date.ToText([base_endDate], "yyyy-MM-dd")
+        , type text),
+
+        InvokeAPI = Table.AddColumn(PreparedQueries, "Data", each try fnGetShopifyQLData([CustomQuery]) otherwise null),
+        ValidData = Table.SelectRows(InvokeAPI, each [Data] <> null and [Data] <> ""),
+
+        ResultTable = if Table.IsEmpty(ValidData) then 
+            #table({if GroupByField = "week" then "week" else GroupByField}, {}) 
+        else
+            let
+                // 2. EXPANSIÓN
+                ExpandedList = Table.ExpandListColumn(ValidData, "Data"),
+                SampleRecord = List.First(ExpandedList[Data]),
+                FieldsInRecord = Record.FieldNames(SampleRecord),
+                ExpandedResults = Table.ExpandRecordColumn(ExpandedList, "Data", FieldsInRecord, List.Transform(FieldsInRecord, each "api_" & _)),
+
+                MetricList = List.Transform(Text.Split(ColumnsToShow, ","), Text.Trim),
+
+                // 3. TRATAMIENTO DE NULOS
+                FixedNulls = Table.ReplaceValue(ExpandedResults, null, "unknown", Replacer.ReplaceValue, {"api_new_or_returning_customer"}),
+
+                // 4. NORMALIZACIÓN DE EJES (Ya vienen como date desde Periods)
+                TimeNormalized = if GroupByField = "day" then
+                                    Table.TransformColumnTypes(FixedNulls, {{"api_day", type date}})
+                                 else if GroupByField = "month" then
+                                    Table.TransformColumnTypes(FixedNulls, {{"api_month", type date}})
+                                 else 
+                                    Table.DuplicateColumn(FixedNulls, "base_startDate", "week"),
+
+                // 5. CONSOLIDACIÓN
+                Consolidated = if GroupByField = "week" then
+                    Table.Group(TimeNormalized, {"week", "base_endDate", "api_new_or_returning_customer"}, 
+                        List.Transform(MetricList, (col) => {
+                            col, 
+                            each List.Sum(Table.Column(Table.TransformColumnTypes(_, {{"api_" & col, type number}}), "api_" & col)), 
+                            type number
+                        })
+                    )
+                else 
+                    let 
+                        TargetDateCol = "api_" & ApiTimeGroup,
+                        Grouped = Table.Group(TimeNormalized, {TargetDateCol, "api_new_or_returning_customer"},
+                            List.Transform(MetricList, (col) => {
+                                col, 
+                                each List.Sum(Table.Column(Table.TransformColumnTypes(_, {{"api_" & col, type number}}), "api_" & col)), 
+                                type number
+                            })
+                        ),
+                        FinalRenamed = Table.RenameColumns(Grouped, {{TargetDateCol, GroupByField}})
+                    in FinalRenamed,
+
+                // 6. PIVOTE
+                RequiredDims = if GroupByField = "week" then {"week", "base_endDate", "api_new_or_returning_customer"} else {GroupByField, "api_new_or_returning_customer"},
+                Unpivoted = Table.UnpivotOtherColumns(Consolidated, RequiredDims, "Metric", "Value"),
+                
+                MergedHeader = Table.AddColumn(Unpivoted, "Header", each 
+                    let 
+                        CustomerType = if [api_new_or_returning_customer] = "unknown" then "unknown" else Text.Lower(Text.Replace(Text.From([api_new_or_returning_customer]), " ", "_"))
+                    in 
+                        CustomerType & "_" & [Metric], type text),
+                
+                FinalTimeCols = if GroupByField = "week" then {"week", "base_endDate"} else {GroupByField},
+                PivotPrep = Table.SelectColumns(MergedHeader, List.Combine({FinalTimeCols, {"Header", "Value"}})),
+                
+                Pivoted = Table.Pivot(PivotPrep, List.Distinct(PivotPrep[Header]), "Header", "Value", List.Sum),
+                
+                FinalResult = if GroupByField = "week" then Table.RenameColumns(Pivoted, {{"base_endDate", "endDate"}}) else Pivoted
+            in
+                FinalResult,
+
+        // 7. TIPADO FINAL (Garantiza Date para columnas de tiempo)
+        AllCols = Table.ColumnNames(ResultTable),
+        TypedTable = List.Accumulate(AllCols, ResultTable, (state, current) =>
+            if List.Contains({GroupByField, "week", "endDate"}, current) then Table.TransformColumnTypes(state, {{current, type date}})
+            else if Text.Contains(current, "orders") or Text.Contains(current, "customers") then Table.TransformColumnTypes(state, {{current, Int64.Type}})
+            else Table.TransformColumnTypes(state, {{current, type number}})
+        ),
+
+        SortCol = if GroupByField = "week" then "week" else GroupByField,
+        Sorted = Table.Sort(TypedTable, {{SortCol, Order.Ascending}}),
+        Output = Table.AddColumn(Sorted, "refresh_date_SalesNewReturning", each DateTime.LocalNow(), type datetime)
+    in
+        Output
+in
+    Value.ReplaceType(FuncLogic, fnType)

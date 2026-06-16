@@ -1,0 +1,44 @@
+let
+    // 1. Origen principal
+    Origen = SalesBreakdownDaily,
+
+    // --- PREPARACIÓN DE COLUMNAS DINÁMICAS ---
+    // Obtenemos los nombres de las columnas de las tablas a expandir, excluyendo "day"
+    ColsSalesBySource = List.RemoveItems(Table.ColumnNames(SalesBySourceToColsDaily), {"day"}),
+    ColsConversionRate = List.RemoveItems(Table.ColumnNames(ConversionRateToColsDaily), {"day"}),
+
+    // 2. Unión con Ventas Nuevos vs Recurrentes (Estatica, ya que estos campos son fijos de Shopify)
+    JoinNuevosRecurrentes = Table.NestedJoin(Origen, {"day"}, SalesNewReturningDaily, {"day"}, "SalesNewReturning", JoinKind.LeftOuter),
+    ExpandNuevosRecurrentes = Table.ExpandTableColumn(JoinNuevosRecurrentes, "SalesNewReturning", 
+        {"returning_customers", "returning_orders", "returning_net_sales", "returning_average_order_value", "returning_cost_of_goods_sold", "returning_gross_profit", "new_customers", "new_orders", "new_net_sales", "new_average_order_value", "new_cost_of_goods_sold", "new_gross_profit", "unknown_customers", "unknown_orders", "unknown_net_sales", "unknown_average_order_value", "unknown_cost_of_goods_sold", "unknown_gross_profit"}),
+
+    // 5. Unión con Ventas por Fuente (CANALES DINÁMICOS)
+    JoinSalesBySource = Table.NestedJoin(ExpandNuevosRecurrentes, {"day"}, SalesBySourceToColsDaily, {"day"}, "SalesBySourceToCols", JoinKind.LeftOuter),
+    ExpandSalesBySource = Table.ExpandTableColumn(JoinSalesBySource, "SalesBySourceToCols", ColsSalesBySource, ColsSalesBySource),
+
+    // 6. Unión con Tasa de Conversión por Referido (REFERIDOS DINÁMICOS)
+    JoinConversionRate = Table.NestedJoin(ExpandSalesBySource, {"day"}, ConversionRateToColsDaily, {"day"}, "ConversionRateByReferral", JoinKind.LeftOuter),
+    ExpandConversionRate = Table.ExpandTableColumn(JoinConversionRate, "ConversionRateByReferral", ColsConversionRate, ColsConversionRate),
+
+    // 3. Unión con Google Ads
+    JoinGoogleAds = Table.NestedJoin(ExpandConversionRate, {"day"}, GoogleAdsOperationDaily, {"day"}, "GoogleAdsOperation", JoinKind.LeftOuter),
+    ExpandGoogleAds = Table.ExpandTableColumn(JoinGoogleAds, "GoogleAdsOperation", 
+        {"Cost", "Avg. Cpc", "Ctr", "Search Impr. share", "Impressions", "Clicks"}, 
+        {"GoogleAdsOperation.Cost", "GoogleAdsOperation.Avg. Cpc", "GoogleAdsOperation.Ctr", "GoogleAdsOperation.Search Impr. share", "GoogleAdsOperation.Impressions", "GoogleAdsOperation.Clicks"}),
+
+    // 4. Unión con Meta Ads
+    JoinMetaAds = Table.NestedJoin(ExpandGoogleAds, {"day"}, MetaAdsOperationDaily, {"day"}, "MetaAdsOperation", JoinKind.LeftOuter),
+    AggregateMetaAds = Table.AggregateTableColumn(JoinMetaAds, "MetaAdsOperation", {
+        {"spend", List.Sum, "MetaAdsOperation.spend"}, 
+        {"clicks", List.Sum, "MetaAdsOperation.clicks"}, 
+        {"impressions", List.Sum, "MetaAdsOperation.impressions"}
+    }),
+
+    // 7. Tipado Final
+    ChangeTypes = Table.TransformColumnTypes(AggregateMetaAds,{
+        {"MetaAdsOperation.spend", type number}, 
+        {"MetaAdsOperation.clicks", Int64.Type}, 
+        {"MetaAdsOperation.impressions", Int64.Type}
+    })
+in
+    ChangeTypes

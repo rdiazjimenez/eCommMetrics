@@ -1,0 +1,4 @@
+let
+    Source = fnMetaAdsOperationByPeriod("day")
+in
+    Source

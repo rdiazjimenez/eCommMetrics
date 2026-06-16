@@ -1,0 +1,1 @@
+Excel.CurrentWorkbook(){[Name="ParamDiaSemanaReporte"]}[Content]{0}[Column1] meta [IsParameterQuery=true, Type="number", IsParameterQueryRequired=true]

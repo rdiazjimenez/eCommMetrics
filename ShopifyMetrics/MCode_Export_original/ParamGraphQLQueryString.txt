@@ -1,0 +1,1 @@
+"{ orders(first: 50, query: ""created_at:>=2025-06-01 created_at:<2026-06-15 financial_status:paid"") { edges { node { id name createdAt totalPriceSet { shopMoney { amount currencyCode } } subtotalPriceSet { shopMoney { amount } } totalDiscountsSet { shopMoney { amount } } } } } }" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]

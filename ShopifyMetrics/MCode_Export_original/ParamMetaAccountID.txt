@@ -1,0 +1,1 @@
+Excel.CurrentWorkbook(){[Name="ParamMetaAccountID"]}[Content]{0}[Column1] meta [IsParameterQuery=true, Type="text", IsParameterQueryRequired=true]

@@ -1,0 +1,1 @@
+Excel.CurrentWorkbook(){[Name="ParamApiVersion"]}[Content]{0}[Column1] meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
