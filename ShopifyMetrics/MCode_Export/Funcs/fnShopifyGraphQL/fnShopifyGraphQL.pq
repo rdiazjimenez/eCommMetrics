@@ -69,6 +69,4 @@ let
     in
         Response
 in
-    Source;
-
-[ FunctionQueryBinding = "{""exemplarFormulaName"":""qShopifyQL""}" ]
+    Source

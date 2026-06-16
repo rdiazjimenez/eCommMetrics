@@ -92,6 +92,4 @@ let
     in
         Result
 in
-    Source;
-
-[ FunctionQueryBinding = "{""exemplarFormulaName"":""qGetSalesBreakdownByPeriod""}" ]
+    Source

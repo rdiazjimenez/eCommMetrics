@@ -88,6 +88,4 @@ let
     in
         Result
 in
-    Source;
-
-[ FunctionQueryBinding = "{""exemplarFormulaName"":""qShopifyGraphQL""}" ]
+    Source

@@ -24,6 +24,4 @@ let
         ParamHistoricalTable
     )
 in
-    Source;
-
-[ FunctionQueryBinding = "{""exemplarFormulaName"":""qGetDatesInPeriod""}" ]
+    Source

@@ -1,4 +1,4 @@
-// ExGraphQL_SalesBasic nada
+// ExGraphQL_SalesBasic nadas
 // Example: paid orders via fnShopifyGraphQL (native GraphQL, not ShopifyQL).
 // Uses ParamReportStartDate and ParamReportEndDate for the date range.
 // Fetches first 50 paid orders in the inclusive date range. For larger ranges, add cursor pagination.
