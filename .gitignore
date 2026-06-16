@@ -1,3 +1,7 @@
 ~$*.xlsx
-/node_modules
-/dist
+node_modules/
+dist/
+out/
+coverage/
+.vscode-test/
+*.vsix

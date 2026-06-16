@@ -1,0 +1,72 @@
+{
+  "name": "pq-sync",
+  "displayName": "pq-sync",
+  "description": "Sync Power Query M code between Excel workbooks and .pq files",
+  "version": "0.1.0",
+  "publisher": "ricardodiaz",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "pq-sync.pull", "title": "pq-sync: Pull from Excel" },
+      { "command": "pq-sync.push", "title": "pq-sync: Push to Excel" },
+      { "command": "pq-sync.configure", "title": "pq-sync: Configure" },
+      { "command": "pq-sync.pushQuery", "title": "pq-sync: Push this query" },
+      { "command": "pq-sync.pullFromFolder", "title": "pq-sync: Pull from Excel" },
+      { "command": "pq-sync.pushFromFolder", "title": "pq-sync: Push to Excel" }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "pq-sync.pushQuery",
+          "when": "resourceExtname == .pq",
+          "group": "pq-sync@1"
+        },
+        {
+          "command": "pq-sync.pullFromFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "pq-sync@1"
+        },
+        {
+          "command": "pq-sync.pushFromFolder",
+          "when": "explorerResourceIsFolder",
+          "group": "pq-sync@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "pq-sync",
+      "properties": {
+        "pqSync.workbookPath": {
+          "type": "string",
+          "description": "Absolute path to the Excel workbook (.xlsx)"
+        },
+        "pqSync.mcodePath": {
+          "type": "string",
+          "description": "Absolute path to the mcode folder containing .pq files"
+        },
+        "pqSync.scriptsRoot": {
+          "type": "string",
+          "description": "Absolute path to the directory containing the scripts/ subfolder (extract_mcode.ts, import_mcode.ts). Defaults to workspace root."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "jest",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.3.0"
+  }
+}
