@@ -156,10 +156,31 @@ function parseMetadataGroups(mashupPayload: Buffer): {
     return { queryGroups, queryToGroup };
 }
 
+function collectPqFiles(dir: string): string[] {
+    if (!fs.existsSync(dir)) return [];
+    const results: string[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) results.push(...collectPqFiles(fullPath));
+        else if (entry.name.endsWith('.pq')) results.push(path.resolve(fullPath));
+    }
+    return results;
+}
+
+function removeEmptyDirs(dir: string, root: string): void {
+    if (path.resolve(dir) === path.resolve(root)) return;
+    try {
+        if (fs.readdirSync(dir).length === 0) {
+            fs.rmdirSync(dir);
+            removeEmptyDirs(path.dirname(dir), root);
+        }
+    } catch {}
+}
+
 // --- FUNCIÓN PRINCIPAL ---
 function extractMCode(xlsxPath: string, outputRoot: string): void {
     console.log(`\n📂 Procesando: ${xlsxPath}`);
-    
+
     try {
         const excelZip = new AdmZip(xlsxPath);
         let mashupB64: string | null = null;
@@ -224,6 +245,9 @@ function extractMCode(xlsxPath: string, outputRoot: string): void {
         }
 
         // Extracción de código
+        const existingPqFiles = new Set(collectPqFiles(outputRoot));
+        const writtenFiles = new Set<string>();
+
         let mCodeRaw = mCodeEntry.getData().toString('utf8').replace(/^section\s+Section1;\s*/i, '').trim();
         const queries = mCodeRaw.replace(/^shared\s+/i, '').split(/\r?\nshared\s+/);
 
@@ -232,18 +256,31 @@ function extractMCode(xlsxPath: string, outputRoot: string): void {
             if (!q.trim()) continue;
             const parts = q.split('=');
             if (parts.length < 2) continue;
-            
+
             let name = parts[0].trim().replace(/^#"/, '').replace(/"$/, '');
             let formula = parts.slice(1).join('=').trim().replace(/;$/, '');
 
             const qGroupId = queryToGroup[name];
             const folderPath = path.join(outputRoot, qGroupId ? getFullGroupPath(qGroupId, queryGroups) : '');
-            
+
             if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath, { recursive: true });
-            fs.writeFileSync(path.join(folderPath, `${cleanName(name)}.pq`), formula, 'utf8');
+            const outPath = path.resolve(folderPath, `${cleanName(name)}.pq`);
+            fs.writeFileSync(outPath, formula, 'utf8');
+            writtenFiles.add(outPath);
             count++;
         }
+
+        let deletedCount = 0;
+        for (const existing of existingPqFiles) {
+            if (!writtenFiles.has(existing)) {
+                fs.unlinkSync(existing);
+                removeEmptyDirs(path.dirname(existing), outputRoot);
+                deletedCount++;
+            }
+        }
+
         console.log(`✅ ¡Éxito! Se exportaron ${count} archivos a: ${outputRoot}`);
+        if (deletedCount > 0) console.log(`🗑️ Se eliminaron ${deletedCount} archivos obsoletos.`);
 
     } catch (e) { console.error("❌ Error fatal:", e); }
 }
