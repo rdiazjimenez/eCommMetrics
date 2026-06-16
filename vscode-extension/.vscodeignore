@@ -1,0 +1,10 @@
+.vscode/**
+src/**
+out/**
+node_modules/**
+**/*.ts
+**/*.map
+jest.config.js
+tsconfig.json
+issues/**
+PRD.md
