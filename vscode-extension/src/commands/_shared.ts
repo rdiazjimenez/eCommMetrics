@@ -2,6 +2,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { readConfig, autoDetect, writeConfig, getScriptsRoot, PqSyncConfig } from '../config';
 
+let _extensionPath = '';
+
+export function init(extensionPath: string): void {
+    _extensionPath = extensionPath;
+}
+
 export async function resolveConfig(): Promise<PqSyncConfig | null> {
     const existing = readConfig();
     if (existing) return existing;
@@ -34,8 +40,17 @@ export function workspaceRoot(): string {
     return vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath ?? process.cwd();
 }
 
-export function scriptPath(scriptName: string): string {
-    return path.join(getScriptsRoot(), 'scripts', scriptName);
+/** Returns the command + args prefix needed to invoke a script by its .ts basename. */
+export function getScriptInvocation(scriptName: string): { command: string; args: string[] } {
+    const override = getScriptsRoot();
+    const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+    if (override && override !== wsRoot) {
+        // Dev override: run from source via tsx
+        return { command: 'npx', args: ['tsx', path.join(override, 'scripts', scriptName)] };
+    }
+    // Standalone/production: run pre-bundled JS
+    const scriptJs = scriptName.replace(/\.ts$/, '.js');
+    return { command: 'node', args: [path.join(_extensionPath, 'dist', 'scripts', scriptJs)] };
 }
 
 export function lastLine(text: string): string {

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { run } from '../runner';
 import { PqSyncStatusBar } from '../statusBar';
-import { resolveConfig, workspaceRoot, lastLine, scriptPath } from './_shared';
+import { resolveConfig, workspaceRoot, lastLine, getScriptInvocation } from './_shared';
 
 export async function pullCommand(output: vscode.OutputChannel, statusBar: PqSyncStatusBar): Promise<void> {
     const config = await resolveConfig();
@@ -13,7 +13,8 @@ export async function pullCommand(output: vscode.OutputChannel, statusBar: PqSyn
 
     let result;
     try {
-        result = run('npx', ['tsx', scriptPath('extract_mcode.ts'), config.workbookPath, config.mcodePath], workspaceRoot());
+        const script = getScriptInvocation('extract_mcode.ts');
+        result = run(script.command, [...script.args, config.workbookPath, config.mcodePath], workspaceRoot());
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         statusBar.setState('error');

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { readConfig } from '../config';
 import { run } from '../runner';
 import { PqSyncStatusBar } from '../statusBar';
-import { workspaceRoot, lastLine, scriptPath } from './_shared';
+import { workspaceRoot, lastLine, getScriptInvocation } from './_shared';
 
 export async function pullFromFolderCommand(
     uri: vscode.Uri,
@@ -27,7 +27,8 @@ export async function pullFromFolderCommand(
 
     let result;
     try {
-        result = run('npx', ['tsx', scriptPath('extract_mcode.ts'), config.workbookPath, config.mcodePath], workspaceRoot());
+        const script = getScriptInvocation('extract_mcode.ts');
+        result = run(script.command, [...script.args, config.workbookPath, config.mcodePath], workspaceRoot());
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         statusBar.setState('error');

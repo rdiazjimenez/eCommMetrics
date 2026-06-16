@@ -58,7 +58,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "jest",
-    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18",
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 && esbuild ../scripts/extract_mcode.ts --bundle --outfile=dist/scripts/extract_mcode.js --format=cjs --platform=node --target=node18 && esbuild ../scripts/import_mcode.ts --bundle --outfile=dist/scripts/import_mcode.js --format=cjs --platform=node --target=node18",
     "package": "vsce package --no-git-tag-version --allow-missing-repository"
   },
   "devDependencies": {

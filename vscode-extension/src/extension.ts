@@ -6,8 +6,10 @@ import { configureCommand } from './commands/configure';
 import { pushQueryCommand } from './commands/pushQuery';
 import { pullFromFolderCommand } from './commands/pullFromFolder';
 import { pushFromFolderCommand } from './commands/pushFromFolder';
+import { init } from './commands/_shared';
 
 export function activate(context: vscode.ExtensionContext): void {
+    init(context.extensionPath);
     const output = vscode.window.createOutputChannel('pq-sync');
     const statusBar = new PqSyncStatusBar();
 
