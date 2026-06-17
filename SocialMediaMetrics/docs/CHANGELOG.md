@@ -110,5 +110,5 @@ $wc.UploadData("https://ecommmetrics-func.scm.azurewebsites.net/api/zipdeploy?is
 
 Live URL (latest, CSV):
 ```
-https://ecommmetrics-func.azurewebsites.net/api/stats?code=pUnrNRPHJjSQSVS90NPqUlxgrU7lQu3juy58tnPUXfgbAzFuNSuJIQ==&platform=tiktok&view=latest&format=csv
+https://ecommmetrics-func.azurewebsites.net/api/stats?code=<AZURE_FUNCTION_KEY>&platform=tiktok&view=latest&format=csv
 ```
