@@ -7,7 +7,7 @@ let
     ShopName = Text.From(ParamShopName),
     ApiVersion = Text.From(ParamApiVersion),
     AccessToken = Text.From(ParamAccessToken),
-    HistoricalTable = ParamHistoricalTable,
+    HistoricalTable = Text.From(ParamHistoricalTable),
     SourceTable = "sales",
 
     GetSalesMetrics = () as list => {

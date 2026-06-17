@@ -1,1 +1,1 @@
-Excel.CurrentWorkbook(){[Name="TableHistorical"]}[Content] meta [IsParameterQuery=true, Type="Any", IsParameterQueryRequired=true]
+"TableHistorical" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]

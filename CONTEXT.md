@@ -27,6 +27,24 @@ A social media or content distribution service from which stats are ingested via
 
 Shopify is out of scope for this pipeline — it lives in `ShopifyMetrics/` and connects directly from Excel via its native connector.
 
+---
+
+# ShopifyMetrics Glossary
+
+## fn** / q** Query Pair
+
+Power Query auto-generates a function query (`fn**`) from its paired definition query (`q**`) when the `q**` query returns a function. The `fn**` is a read-only artifact — it cannot be modified directly. All edits go in the `q**` file. The `fn**` simply exposes the function for invocation by other queries.
+
+Example: `qGetSalesBreakdownByPeriod.pq` defines the function → Power Query creates `fnGetSalesBreakdownByPeriod` automatically.
+
+## ParamHistoricalTable
+
+Named range `TableHistorical` in the Excel workbook. Points to the accumulated output of a self-referencing query. On first run, the named range is empty (null). After the first run loads data to `TableHistorical`, subsequent refreshes read it as the prior cumulative dataset.
+
+## RefreshDate (ParamReportRefreshDate)
+
+Threshold date for incremental refresh. Periods before this date that already exist in `TableHistorical` are skipped (not re-fetched from API). Periods on or after this date are always re-fetched regardless of historical presence, to capture corrections or late-arriving data.
+
 Instagram organic content and Meta Ads paid content are two separate platform names sharing one Facebook token in Key Vault.
 
 ## Pipeline
