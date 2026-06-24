@@ -31,7 +31,7 @@ Full end-to-end TikTok stats pipeline on Azure Functions Python v2:
 Ran `setup/one_time_oauth.py` → browser flow → tokens stored in Key Vault:
 - `tiktok-refresh-token`
 - `tiktok-access-token`
-- `tiktok-open-id` = `-000IgPvkOKK4OcuVgzEEcVW4qqArJa_QDYn`
+- `tiktok-open-id` = `<TIKTOK_OPEN_ID>`
 
 ### Bugs found and fixed during deployment
 
